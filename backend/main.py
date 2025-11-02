@@ -37,18 +37,20 @@ supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 class ResearchRequest(BaseModel):
     query: str
     user_id: str
-    # FIX: Change to int to match database
-    conversation_id: Optional[int] = None 
+    conversation_id: Optional[int] = None # Corrected type
 
 # --- 4. Create FastAPI App & Configure CORS ---
 app = FastAPI(title="AI Researcher Backend")
 
+# --- THIS IS THE FINAL CORRECTED ORIGINS LIST ---
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.109:3000"
-    # We will add the Vercel URL here later
+    "http://192.168.1.109:3000",
+    "https://ai-researcher-project.vercel.app"  # Your live Vercel frontend
 ]
+# --- END OF CORRECTION ---
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -71,13 +73,13 @@ def search_web(query: str):
         return {"error": f"Search failed for '{query}': {str(e)}"}
 
 # --- NEW: Function to load message history ---
-def load_messages(conversation_id: int): # FIX: Changed to int
+def load_messages(conversation_id: int): # Corrected type
     """Loads previous messages for context."""
     if not conversation_id:
         return []
     
     try:
-        # FIX: Use desc=False instead of ascending=True
+        # Corrected sorting parameter
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
             .order('created_at', desc=False).execute() 
@@ -226,10 +228,10 @@ async def stream_research_report(query: str, user_id: str, conversation_id: Opti
 
 # --- 7. NEW: Endpoint for retrieving a full conversation ---
 @app.get("/conversation/{conversation_id}")
-async def get_conversation_history(conversation_id: int): # FIX: Changed to int
+async def get_conversation_history(conversation_id: int): # Corrected type
     """Retrieves all messages for a given conversation ID."""
     try:
-        # FIX: Use desc=False instead of ascending=True
+        # Corrected sorting parameter
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
             .order('created_at', desc=False).execute() 
@@ -262,7 +264,7 @@ async def upload_document(
     user_id: str = "placeholder" 
 ):
     if user_id == "placeholder":
-         # --- FIX: Closed the unterminated string ---
+         # Corrected syntax error
          raise HTTPException(status_code=400, detail="User ID must be provided")
 
     print(f"Received file '{file.filename}' for user {user_id}")
