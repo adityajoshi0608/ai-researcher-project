@@ -82,18 +82,18 @@ export default function HomePage() {
 
           if (error) throw error;
           setHistory(data || []);
-          return data; // --- MODIFIED: Return the data for our fix ---
+          return data; 
 
       } catch (error) {
           console.error("Error fetching history:", error.message);
           setHistory([]);
-          return []; // --- MODIFIED: Return empty array on error ---
+          return [];
       } finally {
         setIsLoadingHistory(false);
       }
   };
 
-  // --- FUNCTION: Load a specific conversation ---
+  // --- MODIFIED: Load ALL messages for a conversation ---
   const loadConversation = async (conversationId) => {
     if (!conversationId || isLoadingConversation) return;
 
@@ -103,7 +103,8 @@ export default function HomePage() {
     setCurrentConversationId(conversationId);
 
     try {
-        const response = await fetch(`http://192.168.1.109:8888/conversation/${conversationId}`);
+        // --- UPDATED URL ---
+        const response = await fetch(`https://ai-researcher-backend-tyr0.onrender.com/conversation/${conversationId}`);
         const data = await response.json();
 
         if (!response.ok) throw new Error(data.detail || 'Failed to load messages.');
@@ -171,7 +172,7 @@ export default function HomePage() {
 
     setIsLoading(true);
     const userMessage = { role: 'user', content: query };
-    const isNewChat = !currentConversationId; // --- MODIFIED: Remember if this is a new chat ---
+    const isNewChat = !currentConversationId;
     
     setMessages(prev => [...prev, userMessage]); 
     setQuery("");
@@ -180,7 +181,8 @@ export default function HomePage() {
     setMessages(prev => [...prev, aiMessagePlaceholder]);
 
     try {
-      const response = await fetch('http://192.168.1.109:8888/research', {
+      // --- UPDATED URL ---
+      const response = await fetch('https://ai-researcher-backend-tyr0.onrender.com/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,7 +220,7 @@ export default function HomePage() {
 
     } catch (error) {
        console.error("Error fetching research:", error);
-       const errorMessage = { role: 'ai', content: `Error: ${error.message}\n\nDid you forget to start the backend server?` };
+       const errorMessage = { role: 'ai', content: `Error: ${error.message}\n\nThere was an issue connecting to the AI service.` };
        
        setMessages(prev => {
           const lastMessageIndex = prev.length - 1;
@@ -231,13 +233,9 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
       
-      // --- THIS IS THE FIX ---
-      // If this was a new chat, we must refresh the history AND
-      // find the new ID to set our current state.
       if (isNewChat && session) {
         const newHistory = await fetchHistory(session.user.id);
         if (newHistory && newHistory.length > 0) {
-          // The newest chat will be the first one in the sorted list
           setCurrentConversationId(newHistory[0].id);
         }
       }

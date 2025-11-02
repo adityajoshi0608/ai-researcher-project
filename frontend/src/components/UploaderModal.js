@@ -3,8 +3,6 @@
 
 import { useState, Fragment } from 'react';
 import { Upload, FileText, Loader2, CheckCircle, AlertTriangle, X } from 'lucide-react';
-// We'll use Headless UI for a professional, accessible modal
-// Run: npm install @headlessui/react
 import { Dialog, Transition } from '@headlessui/react';
 
 export default function UploaderModal({ isOpen, setIsOpen, userId }) {
@@ -16,12 +14,11 @@ export default function UploaderModal({ isOpen, setIsOpen, userId }) {
   const closeModal = () => {
     if (isProcessing) return; // Don't close while processing
     setIsOpen(false);
-    // Reset state after closing
     setTimeout(() => {
       setFile(null);
       setStatus('');
       setStatusType('info');
-    }, 300); // Wait for transition
+    }, 300); 
   };
 
   const handleFileChange = (e) => {
@@ -51,8 +48,8 @@ export default function UploaderModal({ isOpen, setIsOpen, userId }) {
     formData.append("file", file);
     
     try {
-      // Use the IP address for your backend
-      const response = await fetch(`http://192.168.1.109:8888/upload_document?user_id=${userId}`, {
+      // --- UPDATED URL ---
+      const response = await fetch(`https://ai-researcher-backend-tyr0.onrender.com/upload_document?user_id=${userId}`, {
         method: 'POST',
         body: formData,
       });
@@ -65,12 +62,11 @@ export default function UploaderModal({ isOpen, setIsOpen, userId }) {
 
       setStatus(`Success: ${result.message}`);
       setStatusType('success');
-      setFile(null); // Clear file input on success
+      setFile(null); 
       
-      // Close modal automatically on success
       setTimeout(() => {
          closeModal();
-      }, 2000); // Close after 2s
+      }, 2000);
 
     } catch (error)
  {
@@ -129,7 +125,6 @@ export default function UploaderModal({ isOpen, setIsOpen, userId }) {
                 </p>
 
                 <form onSubmit={handleUpload} className="mt-6">
-                  {/* Custom File Input */}
                   <label 
                     className="flex flex-col items-center justify-center w-full h-32 
                     border-2 border-dashed border-neutral-700 hover:border-blue-500 
@@ -159,7 +154,6 @@ export default function UploaderModal({ isOpen, setIsOpen, userId }) {
                     )}
                   </label>
                   
-                  {/* Status Message */}
                   {status && (
                     <p className={`mt-3 text-xs flex items-center gap-2
                       ${statusType === 'error' ? 'text-red-400' :
