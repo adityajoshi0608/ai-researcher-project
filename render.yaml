@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-researcher-backend
+    runtime: python
+    repo: https://github.com/YOUR_USERNAME/YOUR_REPO_NAME # Change this in Step 5
+    rootDir: backend
+    plan: free
+    buildFilter:
+      paths:
+      - backend/**
+    build:
+      - command: "apt-get update && apt-get install -y tesseract-ocr poppler-utils"
+      - command: "pip install -r requirements.txt"
+    start:
+      command: "uvicorn main:app --host 0.0.0.0 --port $PORT"

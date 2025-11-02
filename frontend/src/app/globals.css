@@ -1,0 +1,47 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Set the base dark theme on the html element
+  This gives us a 'softer' black background
+*/
+@layer base {
+  html {
+    background-color: theme('colors.neutral.950');
+    color: theme('colors.neutral.200');
+  }
+}
+
+/* A more subtle, modern scrollbar 
+*/
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: theme('colors.neutral.950');
+}
+::-webkit-scrollbar-thumb {
+  background: theme('colors.neutral.700');
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.neutral.600');
+}
+
+/* Fix for the ReactMarkdown library 
+  This removes the default white background from <code> blocks
+*/
+.prose code {
+  background-color: theme('colors.neutral.800') !important;
+  color: theme('colors.amber.300') !important;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.prose pre {
+  background-color: theme('colors.neutral.900') !important;
+  border: 1px solid theme('colors.neutral.800');
+}

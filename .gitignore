@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-cache/
+.env
+
+# Backend-specific
+backend/venv/
+backend/.env
+
+# Node
+node_modules/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Frontend-specific
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# OS - Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# OS - Mac
+.DS_Store
+.AppleDouble
+.LSOverride
