@@ -261,8 +261,7 @@ async def upload_document(
     user_id: str = "placeholder" 
 ):
     if user_id == "placeholder":
-         raise HTTPException(status_code=400, detail="User ID is
- provided")
+         raise HTTPException(status_code=400, detail="User ID must be provided")
 
     print(f"Received file '{file.filename}' for user {user_id}")
 
