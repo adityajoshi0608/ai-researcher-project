@@ -1,7 +1,7 @@
 services:
   - type: web
     name: ai-researcher-backend
-    runtime: python
+    runtime: docker        # <--- THIS IS THE FIX
     repo: https://github.com/adityajoshi0608/ai-researcher-project
     rootDir: backend
     plan: free
@@ -9,6 +9,8 @@ services:
       paths:
       - backend/**
     
-    # --- THIS IS THE CORRECTED COMMAND (removed sudo) ---
-    buildCommand: "apt-get clean && apt-get update && apt-get install -y tesseract-ocr poppler-utils && pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    # We don't need buildCommand or startCommand anymore
+    # The Dockerfile handles all of it.
+    
+    # We tell Render to use port 10000 (which we set in the Dockerfile)
+    httpPort: 10000
