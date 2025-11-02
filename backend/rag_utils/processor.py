@@ -1,52 +1,30 @@
 import os
 import io
+import google.generativeai as genai # NEW
 from PIL import Image
 from typing import List, Dict
 from supabase import Client
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
 import pytesseract
 from pdf2image import convert_from_bytes
-
-# Apply nest_asyncio (needed for async DB calls inside sync FastAPI context)
+from dotenv import load_dotenv # NEW
 
 # --- CONFIGURATION ---
 
-# Tesseract executable path (REQUIRED if not in PATH)
-# Use the exact path you found during installation
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# 1. Load API Key for embedding model
+load_dotenv()
+GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
+if not GOOGLE_GEMINI_API_KEY:
+    raise ValueError("GOOGLE_GEMINI_API_KEY is not set in environment")
+genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
 
-# Configuration for Poppler (REQUIRED for PDF processing if not in PATH)
-# Use the exact path to the Poppler 'bin' directory
-# POPPLER_PATH = r'C:\poppler\poppler-25.07.0\Library\bin' 
+# 2. Define the embedding model we'll use from the API
+EMBEDDING_MODEL = "models/embedding-001"
 
-# The Sentence Transformer model we will use (768 dimensions)
-EMBEDDING_MODEL = "sentence-transformers/multi-qa-mpnet-base-dot-v1"
-EMBEDDING_DIM = 768
-CHUNKING_SIZE = 1000
-CHUNKING_OVERLAP = 200
-
-# Initialize the embedding model (This will download ~400MB the first time!)
-try:
-    # This will either load from cache or download the 400MB model
-    embed_model = SentenceTransformer(EMBEDDING_MODEL)
-    # Force an encoding to trigger download/initialization
-    embed_model.encode(["test query to force download"]) 
-    print(f"Loaded embedding model: {EMBEDDING_MODEL}")
-except FileNotFoundError as e:
-    # Catches Tesseract FileNotFoundError if path is wrong
-    print(f"FATAL RAG ERROR: {e}")
-    raise
-except Exception as e:
-    # Catches SentenceTransformer download errors or general load issues
-    print(f"FATAL RAG ERROR: Could not initialize embedding model.")
-    print(f"DETAILS: {e}")
-    raise
-
-# Initialize Text Splitter
+# 3. Text Splitter (Unchanged)
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=CHUNKING_SIZE,
-    chunk_overlap=CHUNKING_OVERLAP,
+    chunk_size=1000,
+    chunk_overlap=200,
     length_function=len,
     separators=["\n\n", "\n", " ", ""]
 )
@@ -62,25 +40,21 @@ def extract_text_from_file(file_content: bytes, file_name: str) -> str:
     text = ""
     
     if mime_type in ['png', 'jpg', 'jpeg']:
-        # Process image file using OCR
         image = Image.open(io.BytesIO(file_content))
         text = pytesseract.image_to_string(image)
         
     elif mime_type == 'pdf':
-        # Process PDF using pdf2image and OCR
         try:
-             # Pass the Poppler path
-             pages = convert_from_bytes(file_content)
+             # Remove poppler_path for Linux compatibility
+             pages = convert_from_bytes(file_content) 
         except Exception as e:
-             # Check for common Poppler error
-             print(f"PDF ERROR: Poppler processing failed. Ensure POPPLER_PATH is correct. Details: {e}")
+             print(f"PDF ERROR: Poppler processing failed. Details: {e}")
              return f"ERROR: Poppler/PDF processing failed. {e}"
 
         for page in pages:
             text += pytesseract.image_to_string(page) + "\n\n"
             
     elif mime_type in ['txt', 'md']:
-        # Process plain text/markdown file
         text = file_content.decode('utf-8')
         
     else:
@@ -96,63 +70,85 @@ def generate_and_save_embeddings(
     supabase_client: Client
 ) -> List[Dict]:
     """
-    Splits text, generates embeddings, and saves chunks to Supabase.
+    Splits text, generates embeddings via API, and saves chunks to Supabase.
     """
     if raw_text.startswith("ERROR"):
         return [{"error": raw_text}]
     
-    # 1. Split the raw text into chunks
     chunks = text_splitter.split_text(raw_text)
     print(f"Text split into {len(chunks)} chunks.")
     
-    # 2. Generate embeddings for all chunks
-    embeddings = embed_model.encode(chunks)
-    
-    # 3. Prepare data for Supabase insert
     data_to_insert = []
-    for i, chunk in enumerate(chunks):
-        data_to_insert.append({
-            'user_id': user_id,
-            'file_name': file_name,
-            'content': chunk,
-            'embedding': embeddings[i].tolist() # Convert numpy array to Python list
-        })
+    for chunk in chunks:
+        try:
+            # 2. Generate embedding for each chunk via API
+            embedding_response = genai.embed_content(
+                model=EMBEDDING_MODEL,
+                content=chunk,
+                task_type="RETRIEVAL_DOCUMENT" # Critical for RAG
+            )
+            embedding = embedding_response['embedding']
+
+            # 3. Prepare data for Supabase insert
+            data_to_insert.append({
+                'user_id': user_id,
+                'file_name': file_name,
+                'content': chunk,
+                'embedding': embedding
+            })
+        except Exception as e:
+            print(f"Error embedding chunk: {e}")
+            # Skip this chunk and continue
+            pass 
         
-    # 4. Save to Supabase (synchronous API call)
+    # 4. Save to Supabase
     try:
+        if not data_to_insert:
+             return [{"error": "No text could be embedded from the file."}]
+             
         response = supabase_client.table('documents').insert(data_to_insert).execute()
 
-        if response.data and len(response.data) == len(data_to_insert):
+        if response.data:
             return [{"success": f"Successfully processed and saved {len(response.data)} chunks."}]
         else:
-            return [{"error": f"Failed to insert all chunks. DB response: {response.error if hasattr(response, 'error') else 'Unknown'}"}]
+            return [{"error": f"Failed to insert chunks. DB response: {response.error if hasattr(response, 'error') else 'Unknown'}"}]
             
     except Exception as e:
         return [{"error": f"Critical Database Insert Error: {e}"}]
 
 
-def retrieve_context(query_embedding: List[float], user_id: str, supabase_client: Client, top_k: int = 5) -> List[Dict]:
+def retrieve_context(query: str, user_id: str, supabase_client: Client, top_k: int = 5) -> List[str]:
     """
-    Performs vector similarity search against the user's documents using the RPC.
+    Generates embedding for the query via API and performs vector search.
     """
     print(f"Retrieving context for user {user_id}...")
     
-    embedding_str = str(query_embedding)
-    
-    # Define the RAG query: Find the nearest vectors using the RPC function
-    rag_query = supabase_client.rpc(
-        'match_documents',
-        {
-            'query_embedding': embedding_str,
-            'match_count': top_k,
-            'user_id_param': user_id 
-        }
-    ).execute()
-    
-    if rag_query.data:
-        # Extract just the content of the relevant documents
-        context = [doc['content'] for doc in rag_query.data]
-        return context
-    else:
-        print("No relevant documents found in RAG.")
+    try:
+        # 1. Generate embedding for the user's query via API
+        query_embedding_response = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content=query,
+            task_type="RETRIEVAL_QUERY" # Critical for RAG
+        )
+        query_embedding = query_embedding_response['embedding']
+        
+        # 2. Perform vector search
+        rag_query = supabase_client.rpc(
+            'match_documents',
+            {
+                'query_embedding': query_embedding,
+                'match_count': top_k,
+                'user_id_param': user_id 
+            }
+        ).execute()
+        
+        if rag_query.data:
+            context = [doc['content'] for doc in rag_query.data]
+            return context
+        else:
+            print("No relevant documents found in RAG.")
+            return []
+            
+    except Exception as e:
+        print(f"Error during RAG retrieval: {e}")
         return []
