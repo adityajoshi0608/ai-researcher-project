@@ -1,7 +1,7 @@
 services:
   - type: web
     name: ai-researcher-backend
-    runtime: docker        # <--- THIS IS THE FIX
+    runtime: docker
     repo: https://github.com/adityajoshi0608/ai-researcher-project
     rootDir: backend
     plan: free
@@ -9,8 +9,4 @@ services:
       paths:
       - backend/**
     
-    # We don't need buildCommand or startCommand anymore
-    # The Dockerfile handles all of it.
-    
-    # We tell Render to use port 10000 (which we set in the Dockerfile)
-    httpPort: 10000
+    # We don't need httpPort. The Dockerfile now handles the port.

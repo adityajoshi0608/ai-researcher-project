@@ -5,7 +5,6 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install the system dependencies (Tesseract and Poppler)
-# This is the step that was failing before
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     poppler-utils \
@@ -18,5 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your backend code into the container
 COPY . .
 
-# Tell Render what command to run to start the server
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
+# --- THIS IS THE FIX ---
+# Use Render's $PORT variable instead of hardcoding 10000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "$PORT"]
