@@ -38,7 +38,8 @@ supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 class ResearchRequest(BaseModel):
     query: str
     user_id: str
-    # --- FIX #1: Change 'str' to 'int' to match the database type ---
+    # --- THIS WAS THE FIX ---
+    # Changed from Optional[str] to Optional[int] to match the database
     conversation_id: Optional[int] = None 
 
 # --- 4. Create FastAPI App & Configure CORS ---
@@ -71,16 +72,15 @@ def search_web(query: str):
         return {"error": f"Search failed for '{query}': {str(e)}"}
 
 # --- NEW: Function to load message history ---
-def load_messages(conversation_id: str):
+def load_messages(conversation_id: int): # <-- THIS WAS THE FIX (changed from str to int)
     """Loads previous messages for context."""
     if not conversation_id:
         return []
     
     try:
-        # --- FIX #2: Change 'ascending=True' to 'desc=False' ---
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
-            .order('created_at', desc=False).execute() # <-- Corrected syntax
+            .order('created_at', desc=False).execute() # Correct syntax
             
         if messages_response.data:
             history = []
@@ -227,13 +227,12 @@ async def stream_research_report(query: str, user_id: str, conversation_id: Opti
 
 # --- 7. NEW: Endpoint for retrieving a full conversation ---
 @app.get("/conversation/{conversation_id}")
-async def get_conversation_history(conversation_id: str):
+async def get_conversation_history(conversation_id: int): # <-- THIS WAS THE FIX (changed from str to int)
     """Retrieves all messages for a given conversation ID."""
     try:
-        # --- FIX #2: Change 'ascending=True' to 'desc=False' ---
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
-            .order('created_at', desc=False).execute() # <-- Corrected syntax
+            .order('created_at', desc=False).execute() # Correct syntax
         
         if messages_response.data:
             return messages_response.data
