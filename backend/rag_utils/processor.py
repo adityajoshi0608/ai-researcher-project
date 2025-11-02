@@ -7,10 +7,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import pytesseract
 from pdf2image import convert_from_bytes
-import nest_asyncio
 
 # Apply nest_asyncio (needed for async DB calls inside sync FastAPI context)
-nest_asyncio.apply()
 
 # --- CONFIGURATION ---
 
