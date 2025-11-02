@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from rag_utils.processor import (
-    # embed_model is no longer imported
     retrieve_context, 
     generate_and_save_embeddings,
     extract_text_from_file
@@ -38,6 +37,7 @@ supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 class ResearchRequest(BaseModel):
     query: str
     user_id: str
+    # FIX: Change to int to match database
     conversation_id: Optional[int] = None 
 
 # --- 4. Create FastAPI App & Configure CORS ---
@@ -47,6 +47,7 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.1.109:3000"
+    # We will add the Vercel URL here later
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -70,15 +71,16 @@ def search_web(query: str):
         return {"error": f"Search failed for '{query}': {str(e)}"}
 
 # --- NEW: Function to load message history ---
-def load_messages(conversation_id: int):
+def load_messages(conversation_id: int): # FIX: Changed to int
     """Loads previous messages for context."""
     if not conversation_id:
         return []
     
     try:
+        # FIX: Use desc=False instead of ascending=True
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
-            .order('created_at', desc=False).execute()
+            .order('created_at', desc=False).execute() 
             
         if messages_response.data:
             history = []
@@ -121,8 +123,6 @@ async def stream_research_report(query: str, user_id: str, conversation_id: Opti
     
     retrieved_context = ""
     try:
-        # --- THIS IS THE FIX ---
-        # Pass the raw query. The embedding happens inside retrieve_context
         context_chunks = retrieve_context(query, user_id, supabase_client) 
         if context_chunks:
             retrieved_context = "\n---\n".join(context_chunks)
@@ -226,9 +226,10 @@ async def stream_research_report(query: str, user_id: str, conversation_id: Opti
 
 # --- 7. NEW: Endpoint for retrieving a full conversation ---
 @app.get("/conversation/{conversation_id}")
-async def get_conversation_history(conversation_id: int): 
+async def get_conversation_history(conversation_id: int): # FIX: Changed to int
     """Retrieves all messages for a given conversation ID."""
     try:
+        # FIX: Use desc=False instead of ascending=True
         messages_response = supabase_client.table('messages').select('role, content') \
             .eq('conversation_id', conversation_id) \
             .order('created_at', desc=False).execute() 
@@ -261,6 +262,7 @@ async def upload_document(
     user_id: str = "placeholder" 
 ):
     if user_id == "placeholder":
+         # --- FIX: Closed the unterminated string ---
          raise HTTPException(status_code=400, detail="User ID must be provided")
 
     print(f"Received file '{file.filename}' for user {user_id}")
